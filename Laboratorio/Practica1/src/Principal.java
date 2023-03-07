@@ -1,13 +1,13 @@
+
 import java.io.IOException;
 
 /**Fichero: Principal.java
  * Clase para comprobar el funcionamiento de las otras clases del paquete.
  * Asignatura: SEG
- * 
- * Autores: Adrián Lopez Perez, Arturo Salvador Mayor,
- * 			Fidel Nuñez Friera, Darío Marquez Ibañez
+ * @author Profesores de la asignatura
+ * @version 1.0
  */
- 
+
 import java.util.Scanner;
 import org.bouncycastle.crypto.DataLengthException;
 import org.bouncycastle.crypto.InvalidCipherTextException;
@@ -142,12 +142,14 @@ public class Principal {
 							case 5:
 								System.out.print("\n[+] Indique el nombre del fichero Kp (clave publica): ");
 								publicKey = sc.next();
-								System.out.print("[+] Indique el nomnbre del fichero de datos cifrados: ");
-								data = sc.next();
+								
 								System.out.print("[+] Indique el nombre del archivo en claro: ");
 								fileToVerify = sc.next();
+								
+								System.out.print("[+] Indique el nomnbre del fichero que contiene la firma cifrada: ");
+								data = sc.next();
 
-								asim.verificar(publicKey, data, fileToVerify);
+								asim.verificar(publicKey, fileToVerify, data);
 
 							break;
 						}

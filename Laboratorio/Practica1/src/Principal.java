@@ -1,5 +1,3 @@
-package practica1;
-
 import java.io.IOException;
 
 /**Fichero: Principal.java
@@ -127,7 +125,7 @@ public class Principal {
 								System.out.print("[+] Indique donde dejar el fichero descifrado: ");
 								path = sc.next();
 								
-								asim.descifrar(clave, toEncrypt, path, "publica");
+								asim.descifrar(clave, toEncrypt, path);
 								
 							break;
 							case 4:

@@ -1,0 +1,7 @@
+{
+    "java.project.referencedLibraries": [
+        "lib/**/*.jar",
+        "Laboratorio\\practica2\\bcpkix-jdk15on-168.jar",
+        "Laboratorio\\practica2\\bcprov-jdk15on-168.jar"
+    ]
+}

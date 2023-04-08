@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"java.project.sourcePaths": [
+			""
+		],
+		"java.debug.settings.onBuildFailureProceed": true,
+		"java.project.referencedLibraries": [
+			"lib/**/*.jar",
+			"c:\\Users\\Arturo\\Desktop\\Universidad\\SEG\\Laboratorio\\practica2\\bcpkix-jdk15on-168.jar",
+			"c:\\Users\\Arturo\\Desktop\\Universidad\\SEG\\Laboratorio\\practica2\\bcprov-jdk15on-168.jar"
+		]
+	}
+}

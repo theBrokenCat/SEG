@@ -9,7 +9,9 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.CertException;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
+import org.bouncycastle.crypto.util.PublicKeyFactory;
 import org.bouncycastle.operator.ContentVerifierProvider;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.bc.BcRSAContentVerifierProviderBuilder;
@@ -17,6 +19,7 @@ import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.operator.OperatorCreationException;
 
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.Holder;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.bc.BcContentSignerBuilder;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
@@ -72,7 +75,7 @@ public class Usuario {
 		// generamos el nombre x500 del propietario
 		X500Name nombrePropietario = new X500Name("C=ES, O=DTE, CN=Pepito");
 		GestionClaves gc = new GestionClaves();
-		SubjectPublicKeyInfo clavePublica = gc.getClavePublicaSPKI(this.clavePublica);
+		SubjectPublicKeyInfo clavePublica = gc.getClavePublicaSPKI((AsymmetricKeyParameter) this.clavePublica);
 		PKCS10CertificationRequestBuilder requestBuilder = new PKCS10CertificationRequestBuilder(nombrePropietario, clavePublica);
 
 		// generamos la solicitud de certificado
@@ -113,26 +116,34 @@ public class Usuario {
 	// el certificado del usuario tiene el resto de informaci�n
     	
    	// IMPLEMENTAR POR EL ESTUDIANTE
-  		X509CertificateHolder certUsuario = (X509CertificateHolder) GestionObjetosPEM.leerObjetoPEM(fichCertificadoUsu);
-		//comparamos la fecha de validez del certificado con la fecha actual
-		Date fechaActual = new Date();
-		if (fechaActual.before(certUsuario.getNotBefore()) || fechaActual.after(certUsuario.getNotAfter())) {
-			return false;
-		} else {
+		X509CertificateHolder certificadoCA = (X509CertificateHolder) GestionObjetosPEM.leerObjetoPEM(fichCertificadoCA);
+		X509CertificateHolder certificadoUsu = (X509CertificateHolder) GestionObjetosPEM.leerObjetoPEM(fichCertificadoUsu);
+
+		// comprobamos la fecha de validez del certificado
+		Date fechaInicio = certificadoUsu.getNotBefore();
+		System.out.println("\nFecha de inicio: " + fechaInicio.toString());
+		Date fechaFin = certificadoUsu.getNotAfter();
+		System.out.println("Fecha de fin: " + fechaFin.toString());
+		Date fechaActual = new Date(System.currentTimeMillis());
+
+		if (fechaActual.after(fechaInicio) && fechaActual.before(fechaFin)) {
+			System.out.println("[+] La fecha de validez del certificado es correcta");
+			//obtenemos la clave publica de la CA en formato RSAKeyParameters		*******************
 			GestionClaves gc = new GestionClaves();
+			RSAKeyParameters clavePublicaCA = gc.getClavePublicaMotor(certificadoCA.getSubjectPublicKeyInfo());
+			DefaultDigestAlgorithmIdentifierFinder signer = new DefaultDigestAlgorithmIdentifierFinder();
 			// comprobamos la firma del certificado
-			X509CertificateHolder certCA = (X509CertificateHolder) GestionObjetosPEM.leerObjetoPEM(fichCertificadoCA);
-			//Obtener clave pública de la CA en formato RSAKeyParameters
-			SubjectPublicKeyInfo clavePublicaCAInfo = certCA.getSubjectPublicKeyInfo();
-			RSAKeyParameters clavePublicaCA = gc.getClavePublicaMotor(clavePublicaCAInfo);
-
-			// Generar un contenedor para la verificación con la clave pública de CA
-			ContentVerifierProvider contentVerifierProvider = new BcRSAContentVerifierProviderBuilder(new DefaultDigestAlgorithmIdentifierFinder()).build(clavePublicaCA);
-			// Verificar firma del certificado
-			return certUsuario.isSignatureValid(contentVerifierProvider);
-
+			ContentVerifierProvider verifier = new BcRSAContentVerifierProviderBuilder(signer).build(clavePublicaCA);
+			if (certificadoUsu.isSignatureValid(verifier)) {
+				System.out.println("[+] La firma del certificado es correcta");
+				return true;
+			} else {
+				System.out.println("[!] La firma del certificado es incorrecta");
+			}
+		} else {
+			System.out.println("[!] La fecha de validez del certificado es incorrecta");
 		}
-		
+		return false;
 
 	}	
 }

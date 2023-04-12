@@ -94,13 +94,13 @@ public class Principal {
 						switch(menu2){
 							case 1:	//Generar pareja de claves, el certificado X509 y guardar en ficheros.
 								//COMPLETAR POR EL ESTUDIANTE   
-								
+								ca.generarClavesyCertificado();
 								System.out.println("Claves y certificados X509 GENERADOS");
 								System.out.println("Se han guardado en " + CA.NOMBRE_FICHERO_CRT + ", " + CA.NOMBRE_FICHERO_CLAVES + "-*.txt");									
 							break;
 							case 2: //Cargar de fichero pareja de claves
 								//COMPLETAR POR EL ESTUDIANTE  
-
+								ca.cargarClaves();
 								System.out.println("Claves CARGADAS");
 								System.out.println("Se han cargado de " + CA.NOMBRE_FICHERO_CLAVES + "-*.txt");		
 							break;
@@ -110,6 +110,8 @@ public class Principal {
 								    System.out.println("Escriba el nombre del fichero que contendrá el certificado emitido por la CA para el usuario:");
 								    ficheroCertUsu = sc.next();
 								    // A COMPLETAR ESTUDIANTE
+									ca.certificarPeticion(fichero, ficheroCertUsu);
+
 								    
 								    
 							break;							

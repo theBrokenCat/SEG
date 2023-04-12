@@ -1,6 +1,8 @@
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 
@@ -15,10 +17,13 @@ import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCSException;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+
 import java.util.Date;
 
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
+import org.bouncycastle.crypto.util.SubjectPublicKeyInfoFactory;
 import org.bouncycastle.operator.ContentVerifierProvider;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
@@ -73,15 +78,21 @@ public class CA {
 		//COMPLETAR POR EL ESTUDIANTE
 		GestionClaves gc = new GestionClaves();
 		AsymmetricCipherKeyPair claves = gc.generarClaves(BigInteger.valueOf(3), 2048);
-		RSAKeyParameters clavePrivada = (RSAKeyParameters) claves.getPrivate();
-		AsymmetricKeyParameter clavePublica = (RSAKeyParameters) claves.getPublic();
+
+		clavePrivadaCA = (RSAKeyParameters) claves.getPrivate();
+		clavePublicaCA = (RSAKeyParameters) claves.getPublic();
+		PrivateKeyInfo privInfo = gc.getClavePrivadaPKCS8(clavePrivadaCA);
+		GestionObjetosPEM.escribirObjetoPEM(GestionObjetosPEM.PKCS8KEY_PEM_HEADER, privInfo.getEncoded(), NOMBRE_FICHERO_CLAVES + "_pri.txt");
+		SubjectPublicKeyInfo pubInfo = gc.getClavePublicaSPKI(clavePublicaCA);
+		GestionObjetosPEM.escribirObjetoPEM(GestionObjetosPEM.PUBLICKEY_PEM_HEADER, pubInfo.getEncoded(), NOMBRE_FICHERO_CLAVES + "_pu.txt");
+
 		Date dateNow = new Date();
 		Date dateValidez;
 		Calendar calendario = Calendar.getInstance();
 		calendario.add(Calendar.YEAR, 4);
 		dateValidez = calendario.getTime();
 
-		SubjectPublicKeyInfo spki = SubjectPublicKeyInfo.getInstance(clavePublica);
+		SubjectPublicKeyInfo spki = SubjectPublicKeyInfoFactory.createSubjectPublicKeyInfo(clavePublicaCA);
 		X509v3CertificateBuilder certBldr = new X509v3CertificateBuilder(nombreEmisor, numSerie, dateNow, dateValidez, nombreEmisor, spki);
 
 		BasicConstraints basicConstraints = new BasicConstraints(3);
@@ -94,13 +105,22 @@ public class CA {
 		AlgorithmIdentifier sigAlgId = sigAlgFinder.find("SHA256withRSA");
 		AlgorithmIdentifier digAlgId = digAlgFinder.find(sigAlgId);
 
+		//configuramos el firmador
 		BcContentSignerBuilder csBuilder = new BcRSAContentSignerBuilder(sigAlgId, digAlgId);
 
-		X509CertificateHolder holder = certBldr.build(csBuilder.build(clavePrivada));
+		//firmamos el certificado
+		X509CertificateHolder holder = certBldr.build(csBuilder.build(this.clavePrivadaCA));
 
-		//no tengo claro si está bien el holder.getSingature() o si hay que hacerlo de otra forma
-		GestionObjetosPEM.escribirObjetoPEM(GestionObjetosPEM.CERTIFICATE_PEM_HEADER, holder.getSignature(), NOMBRE_FICHERO_CRT);
-		
+		// holder.toASN1Structure(): Convierte el objeto X509CertificateHolder en una
+		// estructura ASN.1 (org.bouncycastle.asn1.x509.Certificate) que representa el
+		// certificado completo.
+		//
+		// .getEncoded(): Convierte la estructura ASN.1 en una matriz de bytes (byte[]).
+		// Esta matriz de bytes contiene la representación binaria del certificado en
+		// formato DER.
+		byte[] certificado = holder.toASN1Structure().getEncoded();
+		GestionObjetosPEM.escribirObjetoPEM(GestionObjetosPEM.CERTIFICATE_PEM_HEADER, certificado, NOMBRE_FICHERO_CRT);
+
 	}
 
 
@@ -117,8 +137,13 @@ public class CA {
 		
 		GestionClaves gc = new GestionClaves(); // Clase con m�todos para manejar las claves
 		//COMPLETAR POR EL ESTUDIANTE
-
-
+		//leemos la clave privada a partir del fichero con un objeto GestionObjetosPEM
+		PrivateKeyInfo privInfo = (PrivateKeyInfo) GestionObjetosPEM.leerObjetoPEM(NOMBRE_FICHERO_CLAVES + "_pri.txt");
+		this.clavePrivadaCA = gc.getClavePrivadaMotor(privInfo);
+		SubjectPublicKeyInfo pubInfo = (SubjectPublicKeyInfo) GestionObjetosPEM.leerObjetoPEM(NOMBRE_FICHERO_CLAVES + "_pu.txt");
+		this.clavePublicaCA = gc.getClavePublicaMotor(pubInfo);
+		
+		
 
 	}
 
@@ -142,7 +167,47 @@ public class CA {
 
 		//  COMPLETAR POR EL ESTUDIANTE
 
-		return false;
+		if(clavePrivadaCA == null || clavePublicaCA == null) {
+			System.out.println("No se han generado las claves de la CA");
+			return false;
+		}else{
+			//leemos la peticion de certificado
+			PKCS10CertificationRequest peticion = (PKCS10CertificationRequest) GestionObjetosPEM.leerObjetoPEM(ficheroPeticion);
+			//verificamos la firma de la peticion
+			GestionClaves gc = new GestionClaves();
+			SubjectPublicKeyInfo pubInfo = peticion.getSubjectPublicKeyInfo();
+			RSAKeyParameters clavePublica = (RSAKeyParameters) gc.getClavePublicaMotor(pubInfo);
+			ContentVerifierProvider contentVerifierProvider = new BcRSAContentVerifierProviderBuilder(new DefaultDigestAlgorithmIdentifierFinder()).build(clavePublica);
+
+			if(peticion.isSignatureValid(contentVerifierProvider)) {
+				Calendar c = Calendar.getInstance();
+				Date fecha = c.getTime();
+				c.add(Calendar.YEAR, anosValidez);
+				Date fechaCadCert = c.getTime();
+				//configuramos e instanciamos el builder del certificado
+				X509v3CertificateBuilder certBldr = new X509v3CertificateBuilder(nombreEmisor, numSerie, fecha, fechaCadCert, 
+						nombreEmisor, gc.getClavePublicaSPKI(clavePublica));
+				//configuramos la firma y firmamos el certificado con la clave privada de la CA
+				DefaultSignatureAlgorithmIdentifierFinder sigAlgFinder = new DefaultSignatureAlgorithmIdentifierFinder(); //Firma
+				DefaultDigestAlgorithmIdentifierFinder digAlgFinder = new DefaultDigestAlgorithmIdentifierFinder(); //resumen hash
+
+				AlgorithmIdentifier sigAlgId = sigAlgFinder.find("SHA256withRSA");
+				AlgorithmIdentifier digAlgId = digAlgFinder.find(sigAlgId);
+
+				BcContentSignerBuilder csBuilder = new BcRSAContentSignerBuilder(sigAlgId, digAlgId);
+
+				X509CertificateHolder holder = certBldr.build(csBuilder.build(this.clavePrivadaCA));
+
+				System.out.println("[+] Certificado generado");
+				GestionObjetosPEM.escribirObjetoPEM(GestionObjetosPEM.CERTIFICATE_PEM_HEADER, holder.getEncoded(), ficheroCertUsu);
+				return true;
+				
+			}else {
+				System.out.println("La firma de la peticion no es valida");
+				return false;
+			}
+
+		}
 
 	
 	}
